@@ -1,0 +1,29 @@
+plugins {
+    id 'java'
+}
+
+group = 'burp'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'net.portswigger.burp.extensions:montoya-api:2025.7'
+
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+jar {
+    manifest {
+        attributes(
+            'Main-Class': 'burp.BurpExtender'
+        )
+    }
+    archiveFileName = 'BurpSitemapExporter.jar'
+} 
