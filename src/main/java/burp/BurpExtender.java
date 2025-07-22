@@ -125,12 +125,15 @@ public class BurpExtender implements BurpExtension, ContextMenuItemsProvider {
             return;
         }
 
-        // Create a panel with a checkbox for saving headers
-        JCheckBox headersCheckBox = new JCheckBox("Save headers (headers)", true);
+        // Create a panel with a checkbox for saving headers and overwrite existing files
+        JCheckBox headersCheckBox = new JCheckBox("Save files with headers", true);
+        JCheckBox overwriteCheckBox = new JCheckBox("Overwrite existing files", false);
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        JPanel accessory = new JPanel(new BorderLayout());
-        accessory.add(headersCheckBox, BorderLayout.NORTH);
+        JPanel accessory = new JPanel();
+        accessory.setLayout(new BoxLayout(accessory, BoxLayout.Y_AXIS));
+        accessory.add(headersCheckBox);
+        accessory.add(overwriteCheckBox);
         chooser.setAccessory(accessory);
 
         int res = chooser.showSaveDialog(panel);
@@ -143,6 +146,7 @@ public class BurpExtender implements BurpExtension, ContextMenuItemsProvider {
         logArea.append("Exporting to folder: " + outputDir.getAbsolutePath() + "\n");
 
         boolean shouldSaveHeaders = headersCheckBox.isSelected();
+        boolean shouldOverwrite = overwriteCheckBox.isSelected();
         int savedCount = 0;
 
         for (HttpRequestResponse entry : messages) {
@@ -159,16 +163,25 @@ public class BurpExtender implements BurpExtension, ContextMenuItemsProvider {
                 File filePath = buildFilePath(outputDir, url);
                 filePath.getParentFile().mkdirs();
 
+                if (filePath.exists() && !shouldOverwrite) {
+                    logArea.append("File exists, skipping (overwrite disabled): " + filePath.getAbsolutePath() + "\n");
+                    continue;
+                }
+
                 try (FileOutputStream fos = new FileOutputStream(filePath)) {
                     fos.write(response.body().getBytes());
                 }
 
                 if (shouldSaveHeaders) {
                     File headersPath = new File(filePath.getParentFile(), filePath.getName() + "_headers.txt");
-                    try (PrintWriter writer = new PrintWriter(headersPath)) {
-                        for (HttpHeader header : response.headers()) {
-                            writer.println(header.toString());
+                    if (!headersPath.exists() || shouldOverwrite) {
+                        try (PrintWriter writer = new PrintWriter(headersPath)) {
+                            for (HttpHeader header : response.headers()) {
+                                writer.println(header.toString());
+                            }
                         }
+                    } else {
+                        logArea.append("Headers file exists, skipping (overwrite disabled): " + headersPath.getAbsolutePath() + "\n");
                     }
                 }
 
