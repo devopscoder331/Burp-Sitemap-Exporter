@@ -116,13 +116,23 @@ public class BurpExtender implements BurpExtension, ContextMenuItemsProvider {
     }
 
     private void exportHttpMessages(List<HttpRequestResponse> messages) {
+        exportHttpMessages(messages, true);
+    }
+
+    private void exportHttpMessages(List<HttpRequestResponse> messages, boolean saveHeaders) {
         if (messages == null || messages.isEmpty()) {
             logArea.append("Nothing to export.\n");
             return;
         }
 
+        // Create a panel with a checkbox for saving headers
+        JCheckBox headersCheckBox = new JCheckBox("Save headers (headers)", true);
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        JPanel accessory = new JPanel(new BorderLayout());
+        accessory.add(headersCheckBox, BorderLayout.NORTH);
+        chooser.setAccessory(accessory);
+
         int res = chooser.showSaveDialog(panel);
         if (res != JFileChooser.APPROVE_OPTION) {
             logArea.append("Export cancelled by user.\n");
@@ -132,6 +142,7 @@ public class BurpExtender implements BurpExtension, ContextMenuItemsProvider {
         File outputDir = chooser.getSelectedFile();
         logArea.append("Exporting to folder: " + outputDir.getAbsolutePath() + "\n");
 
+        boolean shouldSaveHeaders = headersCheckBox.isSelected();
         int savedCount = 0;
 
         for (HttpRequestResponse entry : messages) {
@@ -146,16 +157,18 @@ public class BurpExtender implements BurpExtension, ContextMenuItemsProvider {
                 String urlStr = entry.request().url();
                 URL url = new URL(urlStr);
                 File filePath = buildFilePath(outputDir, url);
-                File headersPath = new File(filePath.getParentFile(), filePath.getName() + "_headers.txt");
                 filePath.getParentFile().mkdirs();
 
                 try (FileOutputStream fos = new FileOutputStream(filePath)) {
                     fos.write(response.body().getBytes());
                 }
 
-                try (PrintWriter writer = new PrintWriter(headersPath)) {
-                    for (HttpHeader header : response.headers()) {
-                        writer.println(header.toString());
+                if (shouldSaveHeaders) {
+                    File headersPath = new File(filePath.getParentFile(), filePath.getName() + "_headers.txt");
+                    try (PrintWriter writer = new PrintWriter(headersPath)) {
+                        for (HttpHeader header : response.headers()) {
+                            writer.println(header.toString());
+                        }
                     }
                 }
 
